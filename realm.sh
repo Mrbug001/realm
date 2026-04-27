@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-BASE_URL="https://raw.githubusercontent.com/你的用户名/你的仓库/main"
+BASE_URL="https://raw.githubusercontent.com/Mrbug001/realm/main"
 
 BASE_DIR="/etc/xshyun/realm"
 BIN_DIR="$BASE_DIR/bin"
@@ -90,10 +90,10 @@ install_realm(){
   local a
   a="$(arch)"
 
-  curl -L -o "$BIN" "$BASE_URL/realm/$a/realm"
+  curl -L -o "$BIN" "$BASE_URL/$a/realm"
   chmod +x "$BIN"
 
-  curl -L -o "$CONF_DIR/full.json" "$BASE_URL/realm/full.json"
+  curl -L -o "$CONF_DIR/full.json" "$BASE_URL/full.json"
 
   cp -f "$0" "$SCRIPT_PATH" 2>/dev/null || true
   chmod +x "$SCRIPT_PATH" 2>/dev/null || true
@@ -119,7 +119,7 @@ add_service(){
   check_port "$remotePort"
 
   [[ ! -f "$BIN" ]] && install_realm
-  [[ ! -f "$CONF_DIR/full.json" ]] && curl -L -o "$CONF_DIR/full.json" "$BASE_URL/realm/full.json"
+  [[ ! -f "$CONF_DIR/full.json" ]] && curl -L -o "$CONF_DIR/full.json" "$BASE_URL/full.json"
 
   mkdir -p "$CONF_DIR" "$LOG_DIR" "$CERT_DIR"
 
