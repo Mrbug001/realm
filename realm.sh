@@ -36,6 +36,7 @@ err(){ echo "ERROR: $*" >&2; exit 1; }
 
 need_cmd(){
   command -v "$1" >/dev/null 2>&1 && return
+
   if command -v apt-get >/dev/null 2>&1; then
     apt-get update -y >/dev/null
     apt-get install -y "$1" >/dev/null
@@ -57,20 +58,61 @@ arch(){
 parse_args(){
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      -l|--localPort) localPort="$2"; shift 2 ;;
-      -r|--remoteHost) remoteHost="$2"; shift 2 ;;
-      -p|--remotePort) remotePort="$2"; shift 2 ;;
-      --protocol) protocol="$2"; shift 2 ;;
-      --isSecure) isSecure="$2"; shift 2 ;;
-      --sendProxy) sendProxy="$2"; shift 2 ;;
-      --acceptProxy) acceptProxy="$2"; shift 2 ;;
-      --customHost) customHost="$2"; shift 2 ;;
-      --customSni) customSni="$2"; shift 2 ;;
-      --customPath) customPath="$2"; shift 2 ;;
-      --isServer) isServer="$2"; shift 2 ;;
-      --autoRestart) autoRestart="$2"; shift 2 ;;
-      --isBalance) isBalance="$2"; shift 2 ;;
-      *) shift ;;
+      -l|--localPort)
+        localPort="$2"
+        shift 2
+        ;;
+      -r|--remoteHost)
+        remoteHost="$2"
+        shift 2
+        ;;
+      -p|--remotePort)
+        remotePort="$2"
+        shift 2
+        ;;
+      --protocol)
+        protocol="$2"
+        shift 2
+        ;;
+      --isSecure)
+        isSecure="$2"
+        shift 2
+        ;;
+      --sendProxy)
+        sendProxy="$2"
+        shift 2
+        ;;
+      --acceptProxy)
+        acceptProxy="$2"
+        shift 2
+        ;;
+      --customHost)
+        customHost="$2"
+        shift 2
+        ;;
+      --customSni)
+        customSni="$2"
+        shift 2
+        ;;
+      --customPath)
+        customPath="$2"
+        shift 2
+        ;;
+      --isServer)
+        isServer="$2"
+        shift 2
+        ;;
+      --autoRestart)
+        autoRestart="$2"
+        shift 2
+        ;;
+      --isBalance)
+        isBalance="$2"
+        shift 2
+        ;;
+      *)
+        shift
+        ;;
     esac
   done
 }
@@ -90,7 +132,7 @@ install_realm(){
   local a
   a="$(arch)"
 
-  curl -L -o "$BIN" "$BASE_URL/$a/realm"
+  curl -L -o "$BIN" "$BASE_URL/realm/$a/realm"
   chmod +x "$BIN"
 
   curl -L -o "$CONF_DIR/full.json" "$BASE_URL/full.json"
@@ -119,7 +161,11 @@ add_service(){
   check_port "$remotePort"
 
   [[ ! -f "$BIN" ]] && install_realm
-  [[ ! -f "$CONF_DIR/full.json" ]] && curl -L -o "$CONF_DIR/full.json" "$BASE_URL/full.json"
+
+  if [[ ! -f "$CONF_DIR/full.json" ]]; then
+    mkdir -p "$CONF_DIR"
+    curl -L -o "$CONF_DIR/full.json" "$BASE_URL/full.json"
+  fi
 
   mkdir -p "$CONF_DIR" "$LOG_DIR" "$CERT_DIR"
 
@@ -153,9 +199,9 @@ add_service(){
       fi
     fi
   else
-    cert_dir="$CERT_DIR/${localPort}"
-    cert_file="$cert_dir/${customSni}.crt"
-    key_file="$cert_dir/${customSni}.key"
+    local cert_dir="$CERT_DIR/${localPort}"
+    local cert_file="$cert_dir/${customSni}.crt"
+    local key_file="$cert_dir/${customSni}.key"
 
     mkdir -p "$cert_dir"
 
@@ -209,7 +255,49 @@ EOF
   fi
 }
 
-uninstall_port(){
+start_port(){
+  parse_args "$@"
+
+  [[ -z "$localPort" ]] && err "缺少 --localPort"
+
+  check_port "$localPort"
+
+  local service="realm-${localPort}.service"
+
+  systemctl start "$service" >/dev/null 2>&1 || err "服务不存在或启动失败: $service"
+
+  echo "OK: realm-${localPort}.service started"
+}
+
+stop_port(){
+  parse_args "$@"
+
+  [[ -z "$localPort" ]] && err "缺少 --localPort"
+
+  check_port "$localPort"
+
+  local service="realm-${localPort}.service"
+
+  systemctl stop "$service" >/dev/null 2>&1 || err "服务不存在或停止失败: $service"
+
+  echo "OK: realm-${localPort}.service stopped"
+}
+
+restart_port(){
+  parse_args "$@"
+
+  [[ -z "$localPort" ]] && err "缺少 --localPort"
+
+  check_port "$localPort"
+
+  local service="realm-${localPort}.service"
+
+  systemctl restart "$service" >/dev/null 2>&1 || err "服务不存在或重启失败: $service"
+
+  echo "OK: realm-${localPort}.service restarted"
+}
+
+remove_port(){
   parse_args "$@"
 
   [[ -z "$localPort" ]] && err "缺少 --localPort"
@@ -229,28 +317,86 @@ uninstall_port(){
   echo "OK: realm-${localPort}.service removed"
 }
 
+uninstall_all(){
+  systemctl list-units --type=service --all | awk '{print $1}' | grep '^realm-[0-9]\+\.service$' | while read -r service; do
+    systemctl stop "$service" >/dev/null 2>&1 || true
+    systemctl disable "$service" >/dev/null 2>&1 || true
+    rm -f "/etc/systemd/system/$service"
+  done
+
+  rm -rf "$BASE_DIR"
+  rm -rf "$LOG_DIR"
+  rm -f "$MANAGER"
+
+  systemctl daemon-reload
+
+  echo "OK: realm fully uninstalled"
+}
+
+uninstall_realm(){
+  parse_args "$@"
+
+  if [[ -n "$localPort" ]]; then
+    remove_port --localPort "$localPort"
+  else
+    uninstall_all
+  fi
+}
+
 list_services(){
   systemctl list-units --type=service --all | grep 'realm-[0-9]\+\.service' || true
+}
+
+status_port(){
+  parse_args "$@"
+
+  [[ -z "$localPort" ]] && err "缺少 --localPort"
+
+  check_port "$localPort"
+
+  local service="realm-${localPort}.service"
+
+  systemctl status "$service" --no-pager
 }
 
 case "$ACTION" in
   install)
     install_realm
     ;;
-  add|start)
+  add)
     add_service "$@"
     ;;
-  uninstall|remove|stop)
-    uninstall_port "$@"
+  start)
+    start_port "$@"
+    ;;
+  stop)
+    stop_port "$@"
+    ;;
+  restart)
+    restart_port "$@"
+    ;;
+  remove)
+    remove_port "$@"
+    ;;
+  uninstall)
+    uninstall_realm "$@"
     ;;
   list)
     list_services
+    ;;
+  status)
+    status_port "$@"
     ;;
   *)
     echo "Usage:"
     echo "  realm install"
     echo "  realm add --localPort 12345 --remoteHost 1.2.3.4 --remotePort 443"
-    echo "  realm add --localPort 443 --remoteHost 127.0.0.1 --remotePort 8080 --protocol wss --isServer true --isSecure true --customHost example.com --customSni example.com --customPath ws"
+    echo "  realm start --localPort 12345"
+    echo "  realm stop --localPort 12345"
+    echo "  realm restart --localPort 12345"
+    echo "  realm status --localPort 12345"
+    echo "  realm remove --localPort 12345"
+    echo "  realm uninstall"
     echo "  realm uninstall --localPort 12345"
     echo "  realm list"
     exit 1
