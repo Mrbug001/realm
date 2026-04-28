@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
-BASE_URL="https://raw.githubusercontent.com/Mrbug001/realm/main"
+#BASE_URL="https://raw.githubusercontent.com/Mrbug001/realm/main"
+#因为github网址国内服务器有时候访问不到
+BASE_URL="https://cdn.jsdelivr.net/gh/Mrbug001/realm@main"
 
 BASE_DIR="/etc/xshyun/realm"
 BIN_DIR="$BASE_DIR/bin"
