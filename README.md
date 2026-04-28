@@ -112,3 +112,17 @@ realm uninstall --localPort 12345
 
 # 查看
 realm list
+
+6. realm.sh中的base_url改成了cdn地址，更新缓存注意
+
+jsDelivr 有缓存。如果你更新了 GitHub 文件，想强制刷新，可以访问：
+
+https://purge.jsdelivr.net/gh/Mrbug001/realm@main/realm.sh
+
+对应二进制也可以刷新：
+
+https://purge.jsdelivr.net/gh/Mrbug001/realm@main/realm/amd64/realm
+
+一句话：脚本里统一用这个就行：
+
+BASE_URL="https://cdn.jsdelivr.net/gh/Mrbug001/realm@main"
