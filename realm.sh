@@ -132,7 +132,7 @@ install_realm(){
   local a
   a="$(arch)"
 
-  curl -L -o "$BIN" "$BASE_URL/realm/$a/realm"
+  curl -L -o "$BIN" "$BASE_URL/$a/realm"
   chmod +x "$BIN"
 
   curl -L -o "$CONF_DIR/full.json" "$BASE_URL/full.json"
